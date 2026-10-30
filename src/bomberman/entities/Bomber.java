@@ -12,6 +12,8 @@ import java.util.Set;
 
 public class Bomber extends DynamicEntity {
 
+    private Direction previousDirection = Direction.NONE;
+    private final int ALIGN_TOLERANCE = 12;
     public Bomber(int x, int y, Image img) {
         super(x, y, img, 2);
     }
@@ -32,6 +34,29 @@ public class Bomber extends DynamicEntity {
 
     // Nhận danh sách vật thể để kiểm tra va chạm
     public void update(List<Entity> entities) {
+
+        // Hỗ trợ căn chỉnh khi đổi hướng
+        if (direction != previousDirection) {
+
+            if ((previousDirection == Direction.UP ||
+                    previousDirection == Direction.DOWN) &&
+                    (direction == Direction.LEFT ||
+                            direction == Direction.RIGHT)) {
+
+                alignY(entities);
+            }
+
+            else if ((previousDirection == Direction.LEFT ||
+                    previousDirection == Direction.RIGHT) &&
+                    (direction == Direction.UP ||
+                            direction == Direction.DOWN)) {
+
+                alignX(entities);
+            }
+
+            previousDirection = direction;
+        }
+
         int nextX = x;
         int nextY = y;
 
@@ -43,7 +68,6 @@ public class Bomber extends DynamicEntity {
             case NONE -> {}
         }
 
-        // Nếu vị trí tiếp theo KHÔNG bị vướng tường/gạch thì mới cho đi
         if (!checkCollision(nextX, nextY, entities)) {
             x = nextX;
             y = nextY;
@@ -60,6 +84,28 @@ public class Bomber extends DynamicEntity {
             }
         }
         return false;
+    }
+
+    private void alignX(List<Entity> entities) {
+
+        int targetX = Math.round((float) x / 32) * 32;
+
+        if (Math.abs(targetX - x) <= ALIGN_TOLERANCE &&
+                !checkCollision(targetX, y, entities)) {
+
+            x = targetX;
+        }
+    }
+
+    private void alignY(List<Entity> entities) {
+
+        int targetY = Math.round((float) y / 32) * 32;
+
+        if (Math.abs(targetY - y) <= ALIGN_TOLERANCE &&
+                !checkCollision(x, targetY, entities)) {
+
+            y = targetY;
+        }
     }
 
     @Override

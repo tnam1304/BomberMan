@@ -4,5 +4,5 @@ out/
 build/
 .DS_Store
 # Bỏ qua tất cả các file có đuôi .txt
-*.txt
+
 /target/

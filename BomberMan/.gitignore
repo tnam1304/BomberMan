@@ -3,3 +3,4 @@ target/
 .vscode/
 highscore.txt
 save_level.txt
+pom.xml

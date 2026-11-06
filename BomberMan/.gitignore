@@ -2,3 +2,4 @@ target/
 *.class
 .vscode/
 highscore.txt
+save_level.txt

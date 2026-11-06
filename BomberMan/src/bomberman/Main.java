@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Set;
 import bomberman.EnemyFactory;
 import bomberman.enums.EnemyType;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 
 public class Main extends Application {
 
@@ -113,9 +116,13 @@ public class Main extends Application {
 
         switch (gameState) {
 
+            // SỬA ĐOẠN NÀY TRONG handleGameKey:
             case MENU -> {
-                if (key == KeyCode.ENTER) {
-                    startGame(1, true);;
+                if (key == KeyCode.N) {
+                    startGame(1, true); // Chơi mới từ Level 1, reset điểm
+                } else if (key == KeyCode.C) {
+                    int savedLevel = GameProgressManager.loadProgress();
+                    startGame(savedLevel, false); // Chơi tiếp level đã lưu
                 }
             }
 
@@ -133,7 +140,7 @@ public class Main extends Application {
                 }
 
                 if (key == KeyCode.R) {
-                    startGame(1, true);;
+                    startGame(1, true);
                 }
             }
 
@@ -146,7 +153,7 @@ public class Main extends Application {
     }
 
     // Khởi tạo một lượt chơi mới
-   
+
 private void startGame(int level, boolean resetScore) {
 
     String[] mapPaths = {
@@ -480,7 +487,7 @@ private void renderBoardFrame() {
     );
 }
 
-    
+
 private void checkLevelCompletion() {
 
     boolean allEnemiesDead = true;
@@ -506,12 +513,14 @@ private void checkLevelCompletion() {
                     TILE_SIZE
             );
 
+    // SỬA ĐOẠN NÀY TRONG checkLevelCompletion:
     if (player.getBoundary().intersects(exitBounds)) {
-
         saveHighScore();
 
         if (currentLevel < 3) {
-            startGame(currentLevel + 1, false);
+            int nextLevel = currentLevel + 1;
+            GameProgressManager.saveProgress(nextLevel); // <--- THÊM DÒNG NÀY ĐỂ LƯU PROGRESS
+            startGame(nextLevel, false);
         } else {
             gameState = GameState.VICTORY;
         }
@@ -562,7 +571,7 @@ private void checkLevelCompletion() {
 
     }
 
-    
+
 private void renderExit() {
 
     boolean allEnemiesDead = true;
@@ -651,7 +660,7 @@ private void renderExit() {
     gc.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
     }
 
-    
+
 private void renderSidePanel() {
 
     double x = 925;
@@ -737,44 +746,109 @@ private void renderSidePanel() {
 
 
     private void renderMenu() {
+        // Lấy chiều rộng và chiều cao thực tế của Canvas để căn giữa chính xác
+        double width = gc.getCanvas().getWidth();
+        double height = gc.getCanvas().getHeight();
+        double centerX = width / 2.0;
+        double centerY = height / 2.0;
+        double time = System.currentTimeMillis() * 0.003;
 
-        gc.setFill(Color.rgb(20, 20, 20));
-        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        // 1. NỀN TỐI SÂU TƯƠNG PHẢN CAO
+        gc.setFill(Color.rgb(10, 10, 18));
+        gc.fillRect(0, 0, width, height);
 
+        // 2. LƯỚI SYNTHWAVE TRÔI Ở NỀN
+        gc.setStroke(Color.rgb(0, 240, 255, 0.12));
+        gc.setLineWidth(1);
+
+        for (int x = 0; x < width; x += 40) {
+            gc.strokeLine(x, 0, x, height);
+        }
+        double gridOffset = (time * 30) % 40;
+        for (double y = gridOffset; y < height; y += 40) {
+            gc.strokeLine(0, y, width, y);
+        }
+
+        // ÉP CĂN GIỮA TOÀN BỘ CHỮ TRONG MENU
         gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
 
-        gc.setFont(Font.font("Arial", 48));
-        gc.setFill(Color.ORANGE);
-        gc.fillText(
-                "BOMBERMAN",
-                WIDTH / 2.0,
-                HEIGHT / 2.0 - 50
-        );
+        // 3. TIÊU ĐỀ "BOMBERMAN"
+        double titleY = centerY - 140;
 
-        gc.setFont(Font.font("Arial", 22));
-        gc.setFill(Color.WHITE);
-        gc.fillText(
-                "Press ENTER to Start",
-                WIDTH / 2.0,
-                HEIGHT / 2.0 + 20
-        );
+        // Bóng khối 3D
+        gc.setFont(Font.font("Arial", FontWeight.BLACK, 62));
+        gc.setFill(Color.rgb(180, 20, 60));
+        gc.fillText("BOMBERMAN", centerX + 4, titleY + 4);
 
-        gc.setFont(Font.font("Arial", 16));
-        gc.setFill(Color.LIGHTGRAY);
-        gc.fillText(
-                "WASD / Arrow Keys: Move     SPACE: Bomb",
-                WIDTH / 2.0,
-                HEIGHT / 2.0 + 65
-        );
+        // Chữ chính màu Vàng
+        gc.setFill(Color.rgb(255, 230, 0));
+        gc.fillText("BOMBERMAN", centerX, titleY);
 
-        gc.fillText(
-                "High Score: " + highScore,
-                WIDTH / 2.0,
-                HEIGHT / 2.0 + 105
-        );
+        // Viền Đỏ Cam
+        gc.setStroke(Color.rgb(255, 60, 0));
+        gc.setLineWidth(2);
+        gc.strokeText("BOMBERMAN", centerX, titleY);
 
+        // Subtitle nhấp nháy
+        double alpha = 0.6 + 0.4 * Math.sin(time * 4);
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        gc.setFill(Color.rgb(0, 240, 255, alpha));
+        gc.fillText("PRESS [KEY] TO SELECT", centerX, titleY + 38);
+
+        // 4. KHUNG MENU CHÍNH (Nới rộng panelW lên 500px)
+        double panelW = 500;
+        double panelH = 180;
+        double panelX = centerX - panelW / 2.0;
+        double panelY = centerY - 60;
+
+        // Nền khung đen trong suốt
+        gc.setFill(Color.rgb(16, 20, 32, 0.9));
+        gc.fillRoundRect(panelX, panelY, panelW, panelH, 14, 14);
+
+        // Viền khung Neon Cyan & Pink
+        gc.setStroke(Color.rgb(0, 240, 255, 0.8));
+        gc.setLineWidth(2);
+        gc.strokeRoundRect(panelX, panelY, panelW, panelH, 14, 14);
+
+        gc.setStroke(Color.rgb(255, 0, 128, 0.5));
+        gc.setLineWidth(1);
+        gc.strokeRoundRect(panelX + 4, panelY + 4, panelW - 8, panelH - 8, 10, 10);
+
+        // 5. CÁC NÚT LỰA CHỌN (Đã được căn giữa theo centerX)
+        int savedLevel = GameProgressManager.loadProgress();
+
+        // Option 1: NEW GAME
+        double opt1Y = panelY + 62;
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        gc.setFill(Color.rgb(50, 255, 126));
+        gc.fillText("[ N ]   NEW GAME", centerX, opt1Y);
+
+        // Option 2: CONTINUE
+        double opt2Y = panelY + 128;
+        if (savedLevel > 1) {
+            gc.setFill(Color.rgb(0, 210, 255));
+            gc.fillText("[ C ]   CONTINUE  (LV " + savedLevel + ")", centerX, opt2Y);
+        } else {
+            gc.setFill(Color.rgb(100, 110, 130));
+            gc.fillText("[ C ]   CONTINUE  (NO SAVE)", centerX, opt2Y);
+        }
+
+        // 6. THÔNG TIN PHÍA DƯỚI
+        double footerY = centerY + 160;
+
+        gc.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+        gc.setFill(Color.rgb(160, 175, 200));
+        gc.fillText("WASD / ARROW KEYS : Move    •    SPACE : Bomb", centerX, footerY);
+
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        gc.setFill(Color.rgb(255, 205, 0));
+        gc.fillText("★ HIGH SCORE: " + highScore + " ★", centerX, footerY + 30);
+
+        // Trả lại căn lề mặc định
         gc.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
     }
+
+
 
     private void renderOverlay(
             String title,

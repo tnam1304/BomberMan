@@ -11,12 +11,11 @@ public class Wall extends Tile {
     @Override
     public void update() {}
 
+  
     @Override
     public void render(GraphicsContext gc) {
-        if (img != null) {
-            gc.drawImage(img, x, y);
-        } else {
-            gc.strokeRect(x, y, 32, 32); // Vẽ ô vuông rỗng tạm thời
-        }
+    if (img != null) {
+        gc.drawImage(img, x, y, 48, 48);
     }
+}
 }

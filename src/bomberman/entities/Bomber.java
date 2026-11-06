@@ -235,7 +235,20 @@ public class Bomber extends DynamicEntity {
         }
 
         if (img != null) {
-            gc.drawImage(img, x, y);
+                // Thu nhỏ hình nhân vật và căn giữa trong ô 32x32
+        double spriteWidth = 34;
+        double spriteHeight = 38;
+
+        double offsetX = (32 - spriteWidth) / 2;
+        double offsetY = (32 - spriteHeight) / 2;
+
+        gc.drawImage(
+            img,
+            x + offsetX,
+            y + offsetY,
+            spriteWidth,
+            spriteHeight
+        );
         } else {
             gc.setFill(Color.BLACK);
             gc.fillRect(

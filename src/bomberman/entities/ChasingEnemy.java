@@ -1,6 +1,7 @@
-
 package bomberman.entities;
 
+import bomberman.GameAssets;
+import javafx.scene.canvas.GraphicsContext;
 import bomberman.GameConfig;
 import bomberman.enums.Direction;
 import javafx.scene.canvas.GraphicsContext;
@@ -67,12 +68,18 @@ public class ChasingEnemy extends Enemy {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
-        gc.setFill(Color.DARKORANGE);
-        gc.fillOval(x + 2, y + 2, 28, 28);
+public void render(GraphicsContext gc) {
 
-        gc.setFill(Color.WHITE);
-        gc.fillOval(x + 8, y + 8, 5, 5);
-        gc.fillOval(x + 19, y + 8, 5, 5);
+    if (!alive) {
+        return;
     }
+
+    gc.drawImage(
+            GameAssets.ENEMY_BLUE,
+            x,
+            y,
+            30,
+            32
+    );
+}
 }

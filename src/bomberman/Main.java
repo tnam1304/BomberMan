@@ -14,6 +14,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
@@ -47,6 +48,10 @@ public class Main extends Application {
     private int score = 0;
     private int highScore = 0;
 
+    private int currentLevel = 1;
+
+    private int exitX = -1;
+    private int exitY = -1;
     private Stage primaryStage;
 
     public static void main(String[] args) {
@@ -110,7 +115,7 @@ public class Main extends Application {
 
             case MENU -> {
                 if (key == KeyCode.ENTER) {
-                    startGame();
+                    startGame(1, true);;
                 }
             }
 
@@ -128,138 +133,156 @@ public class Main extends Application {
                 }
 
                 if (key == KeyCode.R) {
-                    startGame();
+                    startGame(1, true);;
                 }
             }
 
             case GAME_OVER, VICTORY -> {
-                if (key == KeyCode.R || key == KeyCode.ENTER) {
-                    startGame();
+                 if (key == KeyCode.R || key == KeyCode.ENTER) {
+                    startGame(1, true);
                 }
             }
         }
     }
 
     // Khởi tạo một lượt chơi mới
-    private void startGame() {
+   
+private void startGame(int level, boolean resetScore) {
 
-        entities = MapLoader.loadMap("res/levels/level1.txt");
+    String[] mapPaths = {
+            "res/levels/level1.txt",
+            "res/levels/level2.txt",
+            "res/levels/level3.txt"
+    };
 
-        if (entities == null) {
-            System.err.println("Không thể tải bản đồ!");
-            return;
-        }
-
-        enemies.clear();
-        bombs.clear();
-        items.clear();
-        inputKeys.clear();
-
-        score = 0;
-        spaceWasDown = false;
-
-        player = new Bomber(32, 32, null);
-
-        enemies.add(
-                new Enemy(15 * TILE_SIZE, 9 * TILE_SIZE)
-        );
-
-        enemies.add(
-                new ChasingEnemy(25 * TILE_SIZE, 9 * TILE_SIZE)
-        );
-
-        gameState = GameState.PLAYING;
+    if (level < 1 || level > mapPaths.length) {
+        return;
     }
 
-    private void update() {
+    MapLoader.LevelData data =
+            MapLoader.loadMap(mapPaths[level - 1]);
 
-        if (gameState != GameState.PLAYING) {
-            return;
+    if (data == null) {
+        System.err.println("Không thể tải bản đồ!");
+        return;
+    }
+
+    currentLevel = level;
+
+    entities = data.entities;
+
+    enemies.clear();
+    bombs.clear();
+    items.clear();
+    inputKeys.clear();
+
+    if (resetScore) {
+        score = 0;
+    }
+
+    spaceWasDown = false;
+
+    player = new Bomber(
+            data.playerX,
+            data.playerY,
+            GameAssets.PLAYER
+    );
+
+    exitX = data.exitX;
+    exitY = data.exitY;
+
+    for (MapLoader.EnemySpawn spawn : data.enemySpawns) {
+
+        if (spawn.chasing) {
+            enemies.add(new ChasingEnemy(spawn.x, spawn.y));
+        } else {
+            enemies.add(new Enemy(spawn.x, spawn.y));
         }
+    }
 
-        if (!player.isAlive()) {
-            gameState = GameState.GAME_OVER;
-            saveHighScore();
-            return;
-        }
+    gameState = GameState.PLAYING;
+}
 
-        // Di chuyển Bomber
-        player.handleInput(inputKeys);
-        player.update(entities);
+private void update() {
 
-        // Đặt bom
-        boolean spaceDown = inputKeys.contains(KeyCode.SPACE);
+    if (gameState != GameState.PLAYING) {
+        return;
+    }
 
-        if (spaceDown && !spaceWasDown
-                && bombs.size() < player.getMaxBombs()) {
+    // Kiểm tra Game Over
+    if (!player.isAlive()) {
+        gameState = GameState.GAME_OVER;
+        saveHighScore();
+        return;
+    }
 
-            int bombX = Math.round(
-                    (float) player.getX() / TILE_SIZE
-            ) * TILE_SIZE;
+    // Di chuyển Bomber
+    player.handleInput(inputKeys);
+    player.update(entities);
 
-            int bombY = Math.round(
-                    (float) player.getY() / TILE_SIZE
-            ) * TILE_SIZE;
+    // Đặt bom khi nhấn SPACE
+    boolean spaceDown = inputKeys.contains(KeyCode.SPACE);
 
-            // Không đặt hai bom cùng một vị trí
-            boolean occupied = false;
+    if (spaceDown && !spaceWasDown
+            && bombs.size() < player.getMaxBombs()) {
 
-            for (Bomb bomb : bombs) {
+        int bombX = Math.round(
+                (float) player.getX() / TILE_SIZE
+        ) * TILE_SIZE;
 
-                if (!bomb.isExploded()
-                        && bomb.getX() == bombX
-                        && bomb.getY() == bombY) {
+        int bombY = Math.round(
+                (float) player.getY() / TILE_SIZE
+        ) * TILE_SIZE;
 
-                    occupied = true;
-                    break;
-                }
-            }
+        // Kiểm tra vị trí đã có bom chưa
+        boolean occupied = false;
 
-            if (!occupied) {
-                bombs.add(
-                        new Bomb(bombX, bombY, player.getFlameRange())
-                );
-            }
-        }
+        for (Bomb bomb : bombs) {
+            if (!bomb.isExploded()
+                    && bomb.getX() == bombX
+                    && bomb.getY() == bombY) {
 
-        spaceWasDown = spaceDown;
-
-        // Cập nhật bom và chain reaction
-        updateBombs();
-
-        // Cập nhật Enemy
-        updateEnemies();
-
-        // Nhặt vật phẩm
-        updateItems();
-
-        // Cập nhật bản đồ
-        for (Entity entity : entities) {
-            entity.update();
-        }
-
-        // Kiểm tra Game Over
-        if (!player.isAlive()) {
-            gameState = GameState.GAME_OVER;
-            saveHighScore();
-            return;
-        }
-
-        // Kiểm tra chiến thắng màn hiện tại
-        boolean allEnemiesDead = true;
-
-        for (Enemy enemy : enemies) {
-            if (enemy.isAlive()) {
-                allEnemiesDead = false;
+                occupied = true;
                 break;
             }
         }
 
-        if (allEnemiesDead) {
-            gameState = GameState.VICTORY;
-            saveHighScore();
+        if (!occupied) {
+            bombs.add(
+                    new Bomb(bombX, bombY, player.getFlameRange())
+            );
         }
     }
+
+    spaceWasDown = spaceDown;
+
+    // Cập nhật bom và phản ứng dây chuyền
+    updateBombs();
+
+    // Cập nhật Enemy
+    updateEnemies();
+
+    // Nhặt Item
+    updateItems();
+
+    // Cập nhật các đối tượng trên bản đồ
+    for (Entity entity : entities) {
+        entity.update();
+    }
+
+    // Kiểm tra Game Over sau khi cập nhật
+    if (!player.isAlive()) {
+        gameState = GameState.GAME_OVER;
+        saveHighScore();
+        return;
+    }
+
+    // Kiểm tra điều kiện mở cửa và chuyển màn
+    if (gameState == GameState.PLAYING) {
+    checkLevelCompletion();
+}
+}
+
 
     // Cập nhật bom
     private void updateBombs() {
@@ -365,43 +388,136 @@ public class Main extends Application {
     }
 
     // Vẽ toàn bộ game
-    private void render() {
 
-        gc.setFill(Color.rgb(35, 35, 35));
-        gc.fillRect(0, 0, WIDTH, HEIGHT);
+private void render() {
 
-        if (gameState == GameState.MENU) {
-            renderMenu();
-            return;
-        }
+    // Nền tổng thể
+    gc.setFill(Color.rgb(8, 19, 48));
+    gc.fillRect(0, 0, WIDTH, HEIGHT);
 
-        renderGameWorld();
-        renderHUD();
+    // Họa tiết nền
+    gc.setFill(Color.rgb(30, 55, 105, 0.35));
 
-        switch (gameState) {
+    for (int i = 0; i < 12; i++) {
+        gc.fillOval(40 + i * 125, 120 + (i % 3) * 210, 8, 8);
+    }
 
-            case PAUSED -> renderOverlay(
-                    "PAUSED",
-                    "P / ESC: Continue",
-                    "R: Restart"
-            );
+    if (gameState == GameState.MENU) {
+        renderMenu();
+        return;
+    }
 
-            case GAME_OVER -> renderOverlay(
-                    "GAME OVER",
-                    "Score: " + score,
-                    "ENTER / R: Play Again"
-            );
+    // Vẽ khu vực bản đồ
+    renderBoardFrame();
 
-            case VICTORY -> renderOverlay(
-                    "VICTORY!",
-                    "Score: " + score,
-                    "ENTER / R: Play Again"
-            );
+    gc.save();
 
-            default -> {
-            }
+    // Dịch chuyển và phóng to bản đồ
+    gc.translate(GameConfig.BOARD_X, GameConfig.BOARD_Y);
+    gc.scale(GameConfig.RENDER_SCALE, GameConfig.RENDER_SCALE);
+
+    renderGameWorld();
+
+    gc.restore();
+
+    // Vẽ HUD và bảng thông tin
+    renderHUD();
+    renderSidePanel();
+
+    switch (gameState) {
+
+        case PAUSED -> renderOverlay(
+                "PAUSED",
+                "P / ESC: Continue",
+                "R: Restart"
+        );
+
+        case GAME_OVER -> renderOverlay(
+                "GAME OVER",
+                "Score: " + score,
+                "ENTER / R: Play Again"
+        );
+
+        case VICTORY -> renderOverlay(
+                "YOU WIN!",
+                "You completed all 3 levels!",
+                "ENTER / R: Play Again"
+        );
+
+        default -> {
         }
     }
+}
+
+
+private void renderBoardFrame() {
+
+    double x = GameConfig.BOARD_X;
+    double y = GameConfig.BOARD_Y;
+    double w = GameConfig.BOARD_WIDTH;
+    double h = GameConfig.BOARD_HEIGHT;
+
+    // Bóng phía dưới
+    gc.setFill(Color.rgb(0, 0, 0, 0.5));
+    gc.fillRoundRect(x + 8, y + 10, w, h, 18, 18);
+
+    // Nền khung
+    gc.setFill(Color.rgb(17, 39, 83));
+    gc.fillRoundRect(x, y, w, h, 18, 18);
+
+    // Viền xanh
+    gc.setStroke(Color.rgb(65, 120, 220));
+    gc.setLineWidth(4);
+    gc.strokeRoundRect(x, y, w, h, 18, 18);
+
+    // Viền sáng bên trong
+    gc.setStroke(Color.rgb(130, 180, 255, 0.5));
+    gc.setLineWidth(2);
+    gc.strokeRoundRect(
+            x + 6, y + 6,
+            w - 12, h - 12,
+            14, 14
+    );
+}
+
+    
+private void checkLevelCompletion() {
+
+    boolean allEnemiesDead = true;
+
+    for (Enemy enemy : enemies) {
+        if (enemy.isAlive()) {
+            allEnemiesDead = false;
+            break;
+        }
+    }
+
+    // Chưa tiêu diệt hết Enemy thì cửa chưa mở
+    if (!allEnemiesDead) {
+        return;
+    }
+
+    // Kiểm tra Player có chạm cửa thoát không
+    javafx.geometry.Rectangle2D exitBounds =
+            new javafx.geometry.Rectangle2D(
+                    exitX,
+                    exitY,
+                    TILE_SIZE,
+                    TILE_SIZE
+            );
+
+    if (player.getBoundary().intersects(exitBounds)) {
+
+        saveHighScore();
+
+        if (currentLevel < 3) {
+            startGame(currentLevel + 1, false);
+        } else {
+            gameState = GameState.VICTORY;
+        }
+    }
+}
+
 
     private void renderGameWorld() {
 
@@ -422,7 +538,17 @@ public class Main extends Application {
                 enemy.render(gc);
             }
         }
+        // Vẽ cửa thoát
+        if (exitX >= 0 && exitY >= 0) {
+            gc.setFill(Color.DARKGREEN);
+            renderExit();
 
+            gc.setFill(Color.WHITE);
+            gc.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+            gc.fillText("X",
+                    exitX + TILE_SIZE / 2 - 7,
+                    exitY + TILE_SIZE / 2 + 8);
+        }
         // Bomber
         if (player.isAlive()) {
             player.render(gc);
@@ -432,28 +558,183 @@ public class Main extends Application {
         for (Bomb bomb : bombs) {
             bomb.render(gc);
         }
+
+
     }
+
+    
+private void renderExit() {
+
+    boolean allEnemiesDead = true;
+
+    for (Enemy enemy : enemies) {
+        if (enemy.isAlive()) {
+            allEnemiesDead = false;
+            break;
+        }
+    }
+
+    if (allEnemiesDead) {
+        gc.setFill(Color.LIMEGREEN);
+    } else {
+        gc.setFill(Color.DARKRED);
+    }
+
+    gc.fillRect(exitX + 3, exitY + 3, 26, 26);
+
+    gc.setStroke(Color.WHITE);
+    gc.strokeRect(exitX + 3, exitY + 3, 26, 26);
+
+    gc.setFill(Color.WHITE);
+    gc.setFont(Font.font("Arial", 16));
+
+    gc.fillText(
+            "X",
+            exitX + 11,
+            exitY + 22
+    );
+}
+
 
     // HUD
     private void renderHUD() {
+        double y = 25;
+    double h = 85;
 
-        gc.setFill(Color.rgb(20, 20, 20, 0.9));
-        gc.fillRect(0, 0, WIDTH, 30);
+    double[] x = {35, 345, 655, 965, 1275};
+    double[] w = {290, 290, 290, 290, 130};
 
-        gc.setFont(Font.font("Arial", 14));
+    String[] labels = {
+        "LIVES",
+        "SCORE",
+        "LEVEL",
+        "BOMBS",
+        "RANGE"
+    };
 
+    String[] values = {
+        String.valueOf(player.getLives()),
+        String.valueOf(score),
+        currentLevel + " - 1",
+        String.valueOf(player.getMaxBombs()),
+        String.valueOf(player.getFlameRange())
+    };
+
+    for (int i = 0; i < x.length; i++) {
+
+        gc.setFill(Color.rgb(15, 38, 91));
+        gc.fillRoundRect(x[i], y, w[i], h, 20, 20);
+
+        gc.setStroke(Color.rgb(75, 135, 245));
+        gc.setLineWidth(3);
+        gc.strokeRoundRect(x[i], y, w[i], h, 20, 20);
+
+        gc.setFill(Color.rgb(125, 180, 255, 0.3));
+        gc.fillRoundRect(
+                x[i] + 8, y + 7,
+                w[i] - 16, 5, 5, 5
+        );
+
+        gc.setTextAlign(
+                javafx.scene.text.TextAlignment.CENTER
+        );
+
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        gc.setFill(Color.LIGHTBLUE);
+        gc.fillText(labels[i], x[i] + w[i] / 2, y + 29);
+
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 30));
         gc.setFill(Color.WHITE);
-
-        gc.fillText("Lives: " + player.getLives(), 10, 20);
-        gc.fillText("Score: " + score, 120, 20);
-        gc.fillText("High Score: " + highScore, 250, 20);
-
-        gc.fillText("Bombs: " + player.getMaxBombs(), 440, 20);
-        gc.fillText("Range: " + player.getFlameRange(), 550, 20);
-        gc.fillText("Speed: " + player.getSpeed(), 660, 20);
-
-        gc.fillText("P / ESC: Pause", 790, 20);
+        gc.fillText(values[i], x[i] + w[i] / 2, y + 67);
     }
+
+    gc.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
+    }
+
+    
+private void renderSidePanel() {
+
+    double x = 925;
+    double y = 150;
+    double w = 470;
+    double h = 704;
+
+    // Khung chính
+    gc.setFill(Color.rgb(15, 36, 78));
+    gc.fillRoundRect(x, y, w, h, 24, 24);
+
+    gc.setStroke(Color.rgb(60, 115, 215));
+    gc.setLineWidth(3);
+    gc.strokeRoundRect(x, y, w, h, 24, 24);
+
+    gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+
+    // Tiêu đề
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 30));
+    gc.setFill(Color.GOLD);
+    gc.fillText("HOW TO PLAY", x + w / 2, y + 55);
+
+    // Đường phân cách
+    gc.setStroke(Color.rgb(90, 145, 230));
+    gc.strokeLine(x + 35, y + 75, x + w - 35, y + 75);
+
+    // Hướng dẫn
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+    gc.setFill(Color.WHITE);
+
+    gc.fillText("MOVEMENT", x + w / 2, y + 125);
+
+    gc.setFont(Font.font("Arial", 19));
+    gc.setFill(Color.LIGHTBLUE);
+
+    gc.fillText("W A S D / ARROW KEYS", x + w / 2, y + 165);
+    gc.fillText("SPACE : PLACE BOMB", x + w / 2, y + 205);
+    gc.fillText("P : PAUSE GAME", x + w / 2, y + 245);
+
+    // Khung trạng thái
+    gc.setFill(Color.rgb(25, 60, 110));
+    gc.fillRoundRect(x + 30, y + 290, w - 60, 120, 18, 18);
+
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+    gc.setFill(Color.WHITE);
+    gc.fillText("MISSION", x + w / 2, y + 325);
+
+    gc.setFont(Font.font("Arial", 17));
+    gc.setFill(Color.LIGHTGREEN);
+    gc.fillText("Defeat all enemies", x + w / 2, y + 360);
+    gc.fillText("Find the exit door", x + w / 2, y + 390);
+
+    // Trạng thái cửa
+    boolean allDead = true;
+
+    for (Enemy enemy : enemies) {
+        if (enemy.isAlive()) {
+            allDead = false;
+            break;
+        }
+    }
+
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+
+    if (allDead) {
+        gc.setFill(Color.LIMEGREEN);
+        gc.fillText("EXIT UNLOCKED", x + w / 2, y + 485);
+    } else {
+        gc.setFill(Color.ORANGE);
+        gc.fillText("EXIT LOCKED", x + w / 2, y + 485);
+    }
+
+    gc.setFont(Font.font("Arial", FontWeight.BOLD, 64));
+    gc.setFill(Color.LIMEGREEN);
+    gc.fillText("X", x + w / 2, y + 580);
+
+    gc.setFont(Font.font("Arial", 16));
+    gc.setFill(Color.LIGHTGRAY);
+    gc.fillText("BOMBERMAN ADVENTURE", x + w / 2, y + 655);
+
+    gc.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
+}
+
 
     private void renderMenu() {
 

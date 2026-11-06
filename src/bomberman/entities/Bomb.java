@@ -1,6 +1,7 @@
 
 package bomberman.entities;
 
+import bomberman.GameAssets;
 import bomberman.GameConfig;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.canvas.GraphicsContext;
@@ -204,47 +205,124 @@ public class Bomb extends Entity {
     public void update() {
     }
 
-    @Override
-    public void render(GraphicsContext gc) {
+   
+   @Override
+public void render(GraphicsContext gc) {
 
-        if (!exploded) {
+    if (!exploded) {
 
-            gc.setFill(Color.BLACK);
-            gc.fillOval(x + 4, y + 4, 24, 24);
+        // Vẽ ảnh quả bom
+        gc.drawImage(
+                GameAssets.BOMB,
+                x - 4,
+                y - 4,
+                40,
+                40
+        );
 
-            gc.setFill(Color.ORANGE);
-            gc.fillOval(x + 14, y, 5, 7);
+    } else {
 
-        } else {
+        double size = 40;
+        double offset = (GameConfig.TILE_SIZE - size) / 2.0;
 
-            // Hiệu ứng đổi màu lửa
-            boolean bright =
-                    (System.nanoTime() / 100_000_000L) % 2 == 0;
+        for (Rectangle2D flame : flameAreas) {
 
-            for (Rectangle2D flame : flameAreas) {
+            double flameX = flame.getMinX();
+            double flameY = flame.getMinY();
 
-                gc.setFill(
-                        bright ? Color.ORANGERED : Color.ORANGE
+            // Tâm vụ nổ
+            if (flameX == x && flameY == y) {
+
+                gc.drawImage(
+                        GameAssets.EXPLOSION_CENTER,
+                        flameX + offset,
+                        flameY + offset,
+                        size,
+                        size
                 );
 
-                gc.fillRect(
-                        flame.getMinX(),
-                        flame.getMinY(),
-                        flame.getWidth(),
-                        flame.getHeight()
+            }
+
+            // Lửa theo chiều ngang
+            else if (flameY == y) {
+
+                gc.drawImage(
+                        GameAssets.EXPLOSION_HORIZONTAL,
+                        flameX + offset,
+                        flameY + offset,
+                        size,
+                        size
                 );
 
-                gc.setFill(
-                        bright ? Color.YELLOW : Color.GOLD
+            }
+
+            // Lửa theo chiều dọc
+            else if (flameX == x) {
+
+                gc.drawImage(
+                        GameAssets.EXPLOSION_VERTICAL,
+                        flameX + offset,
+                        flameY + offset,
+                        size,
+                        size
                 );
 
-                gc.fillRect(
-                        flame.getMinX() + 5,
-                        flame.getMinY() + 5,
-                        flame.getWidth() - 10,
-                        flame.getHeight() - 10
-                );
+            }
+        }
+
+        // Vẽ phần cuối của tia lửa theo 4 hướng
+        drawFlameEnd(gc, -1, 0, GameAssets.EXPLOSION_HORIZONTAL);
+        drawFlameEnd(gc, 1, 0, GameAssets.EXPLOSION_HORIZONTAL);
+        drawFlameEnd(gc, 0, -1, GameAssets.EXPLOSION_VERTICAL);
+        drawFlameEnd(gc, 0, 1, GameAssets.EXPLOSION_VERTICAL);
+    }
+}
+
+private void drawFlameEnd(
+        GraphicsContext gc,
+        int dx,
+        int dy,
+        javafx.scene.image.Image image) {
+
+    Rectangle2D lastFlame = null;
+
+    for (Rectangle2D flame : flameAreas) {
+
+        if (dx != 0 && flame.getMinY() == y) {
+
+            if (lastFlame == null ||
+                    (dx < 0
+                    ? flame.getMinX() < lastFlame.getMinX()
+                    : flame.getMinX() > lastFlame.getMinX())) {
+
+                lastFlame = flame;
+            }
+        }
+
+        if (dy != 0 && flame.getMinX() == x) {
+
+            if (lastFlame == null ||
+                    (dy < 0
+                    ? flame.getMinY() < lastFlame.getMinY()
+                    : flame.getMinY() > lastFlame.getMinY())) {
+
+                lastFlame = flame;
             }
         }
     }
+
+    if (lastFlame != null) {
+
+        double size = 40;
+        double offset = (GameConfig.TILE_SIZE - size) / 2.0;
+
+        gc.drawImage(
+                GameAssets.EXPLOSION_END,
+                lastFlame.getMinX() + offset,
+                lastFlame.getMinY() + offset,
+                size,
+                size
+        );
+    }
+}
 }

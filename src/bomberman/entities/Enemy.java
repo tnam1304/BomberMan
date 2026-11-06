@@ -1,6 +1,6 @@
-
 package bomberman.entities;
 
+import bomberman.GameAssets;
 import bomberman.GameConfig;
 import bomberman.enums.Direction;
 import javafx.geometry.Rectangle2D;
@@ -99,11 +99,18 @@ public class Enemy extends DynamicEntity {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
-        gc.setFill(Color.RED);
-        gc.fillOval(x + 3, y + 3, 26, 26);
-        gc.setFill(Color.WHITE);
-        gc.fillOval(x + 9, y + 8, 5, 5);
-        gc.fillOval(x + 19, y + 8, 5, 5);
+public void render(GraphicsContext gc) {
+
+    if (!alive) {
+        return;
     }
+
+    gc.drawImage(
+            GameAssets.ENEMY_RED,
+            x,
+            y,
+            30,
+            32
+    );
+}
 }
